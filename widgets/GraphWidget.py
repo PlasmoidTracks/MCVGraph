@@ -6,6 +6,8 @@ from PyQt5.QtWidgets import QToolBar, QAction, QMenu, QToolButton, QShortcut
 from PyQt5.QtCore import QRect
 from PyQt5.QtGui import QKeySequence
 import numpy as np
+import json
+from datetime import datetime
 
 SNAP_LEFT = 0
 SNAP_RIGHT = 1
@@ -16,6 +18,7 @@ SNAP_AUTO = 4
 class GraphWidget(QtWidgets.QWidget):
     _instances = weakref.WeakSet()
     _name_counter = 1
+    _suspend_link_propagation = False
 
     def __init__(self, name=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -88,10 +91,17 @@ class GraphWidget(QtWidgets.QWidget):
         stay_on_top_action = QAction("Stay on top", self, checkable=True)
         def toggle_stay(checked):
             self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint, checked)
-
             self.show()
         stay_on_top_action.toggled.connect(toggle_stay)
         window_menu.addAction(stay_on_top_action)
+
+        export_action = QAction("Export Layout…", self)
+        export_action.triggered.connect(self._export_layout_dialog)
+        window_menu.addAction(export_action)
+
+        import_action = QAction("Import Layout…", self)
+        import_action.triggered.connect(self._import_layout_dialog)
+        window_menu.addAction(import_action)
 
         window_menu.addAction("Close", self.close)
 
@@ -104,7 +114,6 @@ class GraphWidget(QtWidgets.QWidget):
         self.control_button = QToolButton(self)
         self.control_button.setText("Control")
         self.control_button.setPopupMode(QToolButton.InstantPopup)
-
         self.control_button.clicked.connect(self._show_control_menu)
         self.toolbar.addWidget(self.control_button)
 
@@ -122,7 +131,6 @@ class GraphWidget(QtWidgets.QWidget):
         selection_button.setText("Selection")
         selection_button.setMenu(selection_menu)
         selection_button.setPopupMode(QToolButton.InstantPopup)
-
         self.toolbar.addWidget(selection_button)
 
     def _show_control_menu(self):
@@ -130,21 +138,30 @@ class GraphWidget(QtWidgets.QWidget):
 
         link_menu = QMenu("Link Position", self)
 
-        for inst in sorted(GraphWidget._instances, key=lambda x: x.graph_name):
+        sorted_all = sorted(GraphWidget._instances, key=lambda x: x.graph_name)
+
+        for inst in sorted_all:
             if inst is self:
                 continue
             allowed = (
                 not self.is_recursively_linking_to(inst) and
                 not inst.is_recursively_linking_to(self)
             )
-            action = QAction(inst.graph_name, self)
+
+            idx_1based = sorted_all.index(inst) + 1
+            digit_hint = f" (ctrl+L+{idx_1based})" if 1 <= idx_1based <= 9 else ""
+
+            label = f"{inst.graph_name}{digit_hint}"
+            action = QAction(label, self)
             action.setEnabled(allowed)
+
             def make_link(target):
                 return lambda: self._link_to_target(target)
             action.triggered.connect(make_link(inst))
             link_menu.addAction(action)
 
-        unlink_action = QAction("Unlink", self)
+        unlink_label = "Unlink (ctrl+U)"
+        unlink_action = QAction(unlink_label, self)
         unlink_action.setEnabled(self.link_target is not None)
         unlink_action.triggered.connect(self._unlink)
         link_menu.addSeparator()
@@ -180,7 +197,7 @@ class GraphWidget(QtWidgets.QWidget):
 
         offset_menu = QMenu("Anchor Offset", self)
 
-        set_offset_action = QAction("Set Offset Manually...", self)
+        set_offset_action = QAction("Set Offset Manually... (ctrl+shift+O)", self)
         def set_offset():
             dx, ok1 = QtWidgets.QInputDialog.getInt(self, "Anchor Offset X", "X Offset (px):", self._anchor_offset.x(), -2000, 2000)
             if not ok1: return
@@ -190,12 +207,12 @@ class GraphWidget(QtWidgets.QWidget):
         set_offset_action.triggered.connect(set_offset)
         offset_menu.addAction(set_offset_action)
 
-        use_current_action = QAction("Use Current Offset", self)
+        use_current_action = QAction("Use Current Offset (ctrl+alt+O)", self)
         use_current_action.setEnabled(self.link_target is not None)
         use_current_action.triggered.connect(self._use_current_offset)
         offset_menu.addAction(use_current_action)
 
-        reset_offset_action = QAction("Reset Offset", self)
+        reset_offset_action = QAction("Reset Offset (ctrl+shift+R)", self)
         reset_offset_action.triggered.connect(self._reset_anchor_offset)
         offset_menu.addAction(reset_offset_action)
 
@@ -203,7 +220,7 @@ class GraphWidget(QtWidgets.QWidget):
 
         link_size_menu = QMenu("Link Window Size", self)
 
-        width_scale_label = f"Set Width Scale (current: {self._scale_width_factor:.2f})"
+        width_scale_label = f"Set Width Scale (current: {self._scale_width_factor:.2f}) (ctrl+alt+W)"
         width_scale_action = QAction(width_scale_label, self)
         def set_width_scale():
             val, ok = QtWidgets.QInputDialog.getDouble(
@@ -216,7 +233,7 @@ class GraphWidget(QtWidgets.QWidget):
         width_scale_action.triggered.connect(set_width_scale)
         link_size_menu.addAction(width_scale_action)
 
-        height_scale_label = f"Set Height Scale (current: {self._scale_height_factor:.2f})"
+        height_scale_label = f"Set Height Scale (current: {self._scale_height_factor:.2f}) (ctrl+alt+H)"
         height_scale_action = QAction(height_scale_label, self)
         def set_height_scale():
             val, ok = QtWidgets.QInputDialog.getDouble(
@@ -238,7 +255,7 @@ class GraphWidget(QtWidgets.QWidget):
         if not hasattr(self, '_scale_height_factor'):
             self._scale_height_factor = 1.0
 
-        auto_match_width_action = QAction("Auto Match Width", self, checkable=True)
+        auto_match_width_action = QAction("Auto Match Width (ctrl+shift+W)", self, checkable=True)
         auto_match_width_action.setChecked(self._auto_match_width)
         def toggle_auto_match_width():
             self._auto_match_width = not self._auto_match_width
@@ -249,7 +266,7 @@ class GraphWidget(QtWidgets.QWidget):
         auto_match_width_action.triggered.connect(toggle_auto_match_width)
         link_size_menu.addAction(auto_match_width_action)
 
-        auto_match_height_action = QAction("Auto Match Height", self, checkable=True)
+        auto_match_height_action = QAction("Auto Match Height (ctrl+shift+H)", self, checkable=True)
         auto_match_height_action.setChecked(self._auto_match_height)
         def toggle_auto_match_height():
             self._auto_match_height = not self._auto_match_height
@@ -289,13 +306,13 @@ class GraphWidget(QtWidgets.QWidget):
         screen = QtWidgets.QApplication.primaryScreen().availableGeometry()
         new_width = min(new_size.width(), screen.width())
         new_height = min(new_size.height(), screen.height())
-        self.resize(int(new_width), int(new_height))
+        self.resize(new_width, new_height)
 
     def _scale_width(self, factor):
         if not self.link_target:
             return
         self._scale_width_factor = max(0.1, min(10.0, factor))
-        new_width = int(self.link_target.width() * self._scale_width_factor)
+        new_width = self.link_target.width() * self._scale_width_factor
         screen = QtWidgets.QApplication.primaryScreen().availableGeometry()
         new_width = min(new_width, screen.width())
         self.resize(new_width, self.height())
@@ -304,7 +321,7 @@ class GraphWidget(QtWidgets.QWidget):
         if not self.link_target:
             return
         self._scale_height_factor = max(0.1, min(10.0, factor))
-        new_height = int(self.link_target.height() * self._scale_height_factor)
+        new_height = self.link_target.height() * self._scale_height_factor
         screen = QtWidgets.QApplication.primaryScreen().availableGeometry()
         new_height = min(new_height, screen.height())
         self.resize(self.width(), new_height)
@@ -327,7 +344,7 @@ class GraphWidget(QtWidgets.QWidget):
         screen = QtWidgets.QApplication.primaryScreen().availableGeometry()
         new_width = min(self.link_target.width() * factor_x, screen.width())
         new_height = min(self.link_target.height() * factor_y, screen.height())
-        self.resize(int(new_width), int(new_height))
+        self.resize(new_width, new_height)
 
     def take_screenshot(self):
         pixmap = self.grab(QRect(0, 0, self.width(), self.height()))
@@ -472,6 +489,8 @@ class GraphWidget(QtWidgets.QWidget):
 
     def moveEvent(self, event):
         super().moveEvent(event)
+        if getattr(GraphWidget, "_suspend_link_propagation", False):
+            return
         for instance in GraphWidget._instances:
             if instance is self:
                 continue
@@ -482,6 +501,8 @@ class GraphWidget(QtWidgets.QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        if getattr(GraphWidget, "_suspend_link_propagation", False):
+            return
         for instance in GraphWidget._instances:
             if instance is self:
                 continue
@@ -589,7 +610,7 @@ class GraphWidget(QtWidgets.QWidget):
         return mapping.get(self._position_constraint, SNAP_AUTO)
 
     def _set_anchor_offset(self, dx, dy):
-        self._anchor_offset = QtCore.QPoint(int(dx), int(dy))
+        self._anchor_offset = QtCore.QPoint(dx, dy)
         if self.link_target:
             self.snap(self.link_target, self._resolve_snap_direction())
 
@@ -628,7 +649,7 @@ class GraphWidget(QtWidgets.QWidget):
     def _update_legend(self):
         return
 
-    def select_indices(self, indices: np.ndarray, source: str = None):
+    def select_indices(self, indices, source = None):
         if source is None and hasattr(self.graph, "owner") and hasattr(self.graph.owner, "graph_name"):
             source = self.graph.owner.graph_name
 
@@ -744,3 +765,130 @@ class GraphWidget(QtWidgets.QWidget):
 
     def get_selection_data(self):
         return None
+
+
+
+    def _window_is_stay_on_top(self):
+        return self.windowFlags() & QtCore.Qt.WindowStaysOnTopHint
+
+    def _stay_on_top(self, value):
+        self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint, value)
+        self.show()
+
+    def to_layout_dict(self):
+        g = self.geometry()
+        link_name = self.link_target.graph_name if self.link_target is not None else None
+        return {
+            "name": self.graph_name,
+            "geometry": {"x": g.x(), "y": g.y(), "width": g.width(), "height": g.height()},
+            "stay_on_top": self._window_is_stay_on_top(),
+            "link": {"target_name": link_name} if link_name else None,
+            "anchor_mode": self._position_constraint,
+            "anchor_offset": {"dx": self._anchor_offset.x(), "dy": self._anchor_offset.y()},
+            "auto_match_width": self._auto_match_width,
+            "auto_match_height": self._auto_match_height,
+            "scale_width_factor": self._scale_width_factor,
+            "scale_height_factor": self._scale_height_factor,
+        }
+
+    def export_all_layout(self):
+        windows = [inst.to_layout_dict() for inst in sorted(GraphWidget._instances, key=lambda x: x.graph_name)]
+        return {"windows": windows}
+
+    def _export_layout_dialog(self):
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Export Layout", "layout.json", "JSON Files (*.json)")
+        if not path:
+            return
+        data = self.export_all_layout()
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Export failed", str(e))
+
+    def import_layout_from_dict(self, data):
+
+        name_to_inst = {inst.graph_name: inst for inst in GraphWidget._instances}
+
+        try:
+            GraphWidget._suspend_link_propagation = True
+
+            for inst in list(GraphWidget._instances):
+                inst._unlink()
+
+            for w in data["windows"]:
+                name = w.get("name")
+                inst = name_to_inst.get(name)
+                if inst is None:
+                    continue  # decision 4: skip missing
+
+
+                geom = w.get("geometry", {})
+                x = geom.get("x"); y = geom.get("y"); width = geom.get("width"); height = geom.get("height")
+                if None not in (x, y, width, height):
+                    inst.setGeometry(x, y, width, height)
+
+                inst._stay_on_top(w.get("stay_on_top", False))
+
+                inst._position_constraint = w.get("anchor_mode", "auto")
+                off = w.get("anchor_offset", {})
+                inst._anchor_offset = QtCore.QPoint(off.get("dx", 0), off.get("dy", 0))
+                inst._auto_match_width = bool(w.get("auto_match_width", False))
+                inst._auto_match_height = bool(w.get("auto_match_height", False))
+                inst._scale_width_factor = w.get("scale_width_factor", 1.0)
+                inst._scale_height_factor = w.get("scale_height_factor", 1.0)
+
+                view = w.get("view", None)
+                xr = view.get("x")
+                yr = view.get("y")
+                x0, x1 = xr[0], xr[1]
+                y0, y1 = yr[0], yr[1]
+                inst.plot_widget.setXRange(x0, x1, padding=0)
+                inst.plot_widget.setYRange(y0, y1, padding=0)
+                inst.view_box.disableAutoRange()
+
+            for w in data["windows"]:
+                name = w.get("name")
+                inst = name_to_inst.get(name)
+                if inst is None:
+                    continue
+                link = w.get("link")
+                if not link:
+                    continue
+                target_name = link.get("target_name") or link.get("target_id") or link.get("target")
+                target = name_to_inst.get(target_name)
+                if target is None or target is inst:
+                    continue
+                if inst.is_recursively_linking_to(target) or target.is_recursively_linking_to(inst):
+                    continue
+                inst.link_target = target
+
+        finally:
+            GraphWidget._suspend_link_propagation = False
+
+
+        for inst in list(GraphWidget._instances):
+            if inst.link_target is not None:
+                inst.snap(inst.link_target, inst._resolve_snap_direction())
+
+    def _import_layout_dialog(self):
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Import Layout", "", "JSON Files (*.json)")
+        if not path:
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.import_layout_from_dict(data)
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Import failed", str(e))
+
+    def export_all_layout_to_file(self, path):
+        data = self.export_all_layout()
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+    def import_layout_from_file(self, path):
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        self.import_layout_from_dict(data)
+

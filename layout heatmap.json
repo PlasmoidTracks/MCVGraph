@@ -1,0 +1,162 @@
+{
+  "windows": [
+    {
+      "name": "Plot#1",
+      "geometry": {
+        "x": 2828,
+        "y": 271,
+        "width": 613,
+        "height": 621
+      },
+      "stay_on_top": true,
+      "link": null,
+      "anchor_mode": "auto",
+      "anchor_offset": {
+        "dx": 0,
+        "dy": 0
+      },
+      "auto_match_width": false,
+      "auto_match_height": false,
+      "scale_width_factor": 1.0,
+      "scale_height_factor": 1.0,
+      "view": {
+        "x": [
+          -5.0,
+          5.0
+        ],
+        "y": [
+          -5.0,
+          5.0
+        ]
+      }
+    },
+    {
+      "name": "Plot#2",
+      "geometry": {
+        "x": 3441,
+        "y": 271,
+        "width": 613,
+        "height": 310
+      },
+      "stay_on_top": true,
+      "link": {
+        "target_name": "Plot#1"
+      },
+      "anchor_mode": "right",
+      "anchor_offset": {
+        "dx": 0,
+        "dy": 0
+      },
+      "auto_match_width": true,
+      "auto_match_height": true,
+      "scale_width_factor": 1.0,
+      "scale_height_factor": 0.5,
+      "view": {
+        "x": [
+          -5.192600156245004,
+          5.537314450001484
+        ],
+        "y": [
+          -4.666960416031062,
+          4.818101248813468
+        ]
+      }
+    },
+    {
+      "name": "Plot#3",
+      "geometry": {
+        "x": 3441,
+        "y": 581,
+        "width": 613,
+        "height": 310
+      },
+      "stay_on_top": true,
+      "link": {
+        "target_name": "Plot#2"
+      },
+      "anchor_mode": "below",
+      "anchor_offset": {
+        "dx": 0,
+        "dy": 0
+      },
+      "auto_match_width": true,
+      "auto_match_height": true,
+      "scale_width_factor": 1.0,
+      "scale_height_factor": 1.0,
+      "view": {
+        "x": [
+          -41.953569335312906,
+          44.15346792306292
+        ],
+        "y": [
+          -43.39957724162581,
+          42.70746001675004
+        ]
+      }
+    },
+    {
+      "name": "Plot#4",
+      "geometry": {
+        "x": 2828,
+        "y": 892,
+        "width": 1839,
+        "height": 310
+      },
+      "stay_on_top": true,
+      "link": {
+        "target_name": "Plot#1"
+      },
+      "anchor_mode": "below",
+      "anchor_offset": {
+        "dx": 0,
+        "dy": 0
+      },
+      "auto_match_width": true,
+      "auto_match_height": true,
+      "scale_width_factor": 3.0,
+      "scale_height_factor": 0.5,
+      "view": {
+        "x": [
+          -0.019915905566005785,
+          0.5192997807085035
+        ],
+        "y": [
+          -40.32762631297128,
+          40.812958057270684
+        ]
+      }
+    },
+    {
+      "name": "Plot#5",
+      "geometry": {
+        "x": 4054,
+        "y": 271,
+        "width": 613,
+        "height": 620
+      },
+      "stay_on_top": true,
+      "link": {
+        "target_name": "Plot#2"
+      },
+      "anchor_mode": "right",
+      "anchor_offset": {
+        "dx": 0,
+        "dy": 0
+      },
+      "auto_match_width": true,
+      "auto_match_height": true,
+      "scale_width_factor": 1.0,
+      "scale_height_factor": 2.0,
+      "view": {
+        "x": [
+          -0.885335416120221,
+          10.960268325851505
+        ],
+        "y": [
+          -0.9063708779831368,
+          10.93923286398859
+        ]
+      }
+    }
+  ]
+}

@@ -8,8 +8,6 @@ from widgets.GraphWidget import GraphWidget
 from widgets.ViewBox import ViewBox
 from graphs.ScatterPlot import ScatterPlot
 from graphs.LinePlot import LinePlot
-from canvas.layers.ScatterLayer import ScatterLayer
-from canvas.layers.LineLayer import LineLayer
 
 class Canvas(GraphWidget):
     _uid_counter = 1
@@ -57,6 +55,16 @@ class Canvas(GraphWidget):
         if self._view_menu is not None:
             self._focus_submenu_shell()
             self._layer_actions_submenu_shell()
+
+    def set_view_port(self, x1, y1, x2, y2):
+        """Set the visible view (pan/zoom) of the canvas to the given bounds."""
+        try:
+            self.plot_widget.setXRange(x1, x2, padding=0)
+            self.plot_widget.setYRange(y1, y2, padding=0)
+            self.view_box.disableAutoRange()
+        except Exception as e:
+            print(f"[Canvas.set_view_port] Failed to set view: {e}")
+
 
     def _focus_submenu_shell(self):
         if self._view_menu is None:
@@ -171,16 +179,13 @@ class Canvas(GraphWidget):
         self._rebuild_layer_actions_menu()
 
     def get_graph(self, layer_or_plot):
-        if obj in self._layers:
-            return obj
-
         for layer in self._layers:
-            if getattr(layer, "_source_plot", None) is obj:
+            if layer is layer_or_plot:
                 return layer
         return None
 
-    def set_nonfocus_alpha(self, alpha: float):
-        self._nonfocus_alpha = max(0.0, min(1.0, float(alpha)))
+    def set_nonfocus_alpha(self, alpha):
+        self._nonfocus_alpha = max(0.0, min(1.0, alpha))
         self._apply_focus_and_opacity()
 
     def set_axis_label(self, axis, text):
@@ -237,39 +242,7 @@ class Canvas(GraphWidget):
                 if hasattr(obj, "clone"):
                     return obj.clone()
             return obj
-
-        if isinstance(obj, ScatterPlot):
-            layer = ScatterLayer(obj.data_source)
-            layer.set_transform(getattr(obj, "transform", lambda x: x))
-
-            layer._descriptor = obj
-            layer._canvas_uid = getattr(self, "_canvas_uid", None)
-            layer._source_plot = obj
-
-            return layer
-
-        if isinstance(obj, LinePlot):
-            layer = LineLayer(obj.data_source, sample_rate=getattr(obj, "sample_rate", 44100),
-                              transform=getattr(obj, "transform", lambda x: x),
-                              argsort_func=getattr(obj, "argsort_func", None),
-                              name=getattr(obj, "graph_name", None))
-            try:
-                layer.set_selection_color(getattr(layer, "_selection_color", "red"))
-            except Exception:
-                pass
-            layer._descriptor = obj
-            layer._canvas_uid = getattr(self, "_canvas_uid", None)
-            layer._source_plot = obj
-            try:
-                xlbl, ylbl = obj.get_axis_labels()
-                self._x_label = xlbl or self._x_label
-                self._y_label = ylbl or self._y_label
-                self.update_axis_labels()
-            except Exception:
-                pass
-            return layer
-
-        raise TypeError("Unsupported object passed to Canvas.plot()")
+        raise TypeError("Canvas.plot() expects a layer (ScatterPlot | LinePlot | HeatmapPlot).")
 
     def _layer_display_name(self, layer, default="Layer"):
         try:
@@ -283,7 +256,7 @@ class Canvas(GraphWidget):
             return str(layer.name)
         return default
 
-    def _focus_by_index(self, idx: int):
+    def _focus_by_index(self, idx):
         if not self._layers:
             return
         idx = max(0, min(idx, len(self._layers) - 1))
@@ -292,7 +265,7 @@ class Canvas(GraphWidget):
         self._rebuild_focus_menu()
         self._rebuild_layer_actions_menu()
 
-    def _cycle_focus(self, step: int):
+    def _cycle_focus(self, step):
         if not self._layers:
             return
         try:
@@ -315,3 +288,15 @@ class Canvas(GraphWidget):
             sc = QShortcut(seq, self)
             sc.activated.connect(lambda i=i: self._focus_by_index(i - 1))
             self._focus_digit_shortcuts.append(sc)
+
+    def to_layout_dict(self):
+        base = super().to_layout_dict()
+        try:
+            (x0, x1), (y0, y1) = self.view_box.viewRange()
+            base["view"] = {
+                "x": [x0, x1],
+                "y": [y0, y1],
+            }
+        except Exception:
+            base["view"] = None
+        return base

@@ -1,0 +1,98 @@
+{
+  "windows": [
+    {
+      "name": "Inputs",
+      "geometry": {
+        "x": 2915,
+        "y": 234,
+        "width": 900,
+        "height": 600
+      },
+      "stay_on_top": true,
+      "link": null,
+      "anchor_mode": "auto",
+      "anchor_offset": {
+        "dx": 0,
+        "dy": 0
+      },
+      "auto_match_width": false,
+      "auto_match_height": false,
+      "scale_width_factor": 1.0,
+      "scale_height_factor": 1.0,
+      "view": {
+        "x": [
+          -1.1,
+          1.1
+        ],
+        "y": [
+          -1.1,
+          1.1
+        ]
+      }
+    },
+    {
+      "name": "Outputs",
+      "geometry": {
+        "x": 3815,
+        "y": 234,
+        "width": 900,
+        "height": 600
+      },
+      "stay_on_top": true,
+      "link": {
+        "target_name": "Inputs"
+      },
+      "anchor_mode": "auto",
+      "anchor_offset": {
+        "dx": 0,
+        "dy": 0
+      },
+      "auto_match_width": true,
+      "auto_match_height": true,
+      "scale_width_factor": 1.0,
+      "scale_height_factor": 1.0,
+      "view": {
+        "x": [
+          -1.551890742016545,
+          1.678193269961367
+        ],
+        "y": [
+          -0.22090048269560014,
+          1.6633151909581816
+        ]
+      }
+    },
+    {
+      "name": "W2",
+      "geometry": {
+        "x": 2915,
+        "y": 834,
+        "width": 1800,
+        "height": 300
+      },
+      "stay_on_top": true,
+      "link": {
+        "target_name": "Inputs"
+      },
+      "anchor_mode": "auto",
+      "anchor_offset": {
+        "dx": 0,
+        "dy": 0
+      },
+      "auto_match_width": true,
+      "auto_match_height": true,
+      "scale_width_factor": 2.0,
+      "scale_height_factor": 0.5,
+      "view": {
+        "x": [
+          -1.6,
+          33.6
+        ],
+        "y": [
+          -1.6,
+          33.6
+        ]
+      }
+    }
+  ]
+}
