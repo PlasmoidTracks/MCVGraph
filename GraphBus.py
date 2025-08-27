@@ -35,6 +35,17 @@ class GraphBus:
 class GraphEventClient(QObject):
     signal = pyqtSignal(str, object)
 
+    _registered_types = {"ScatterPlot", "LinePlot", "HeatmapPlot", "PolylinePlot"}
+
+    def register_type(cls, graph_type):
+        cls._registered_types.add(graph_type)
+
+    def unregister_type(cls, graph_type):
+        cls._registered_types.discard(graph_type)
+
+    def list_registered_types(cls):
+        return sorted(cls._registered_types)
+
     def __init__(self, owner, node_type):
         super().__init__()
         self.owner = owner
@@ -45,6 +56,7 @@ class GraphEventClient(QObject):
         self.signal.connect(owner.handle_event)
 
     def disconnect(self):
+        print(f"[GraphBus] Disconnecting: {self.node_type}")
         self.signal.disconnect()
         self.bus.unregister(self)
 
@@ -55,6 +67,10 @@ class GraphEventClient(QObject):
                     payload = payload.copy()
                     payload["color"] = self.owner.get_color()
             self.bus.emit_event(self.node_type, target_type, event_type, payload)
+
+    def emit_broadcast(self, event_type, payload):
+        for target_type in type(self)._registered_types:
+            self.emit(target_type, event_type, payload)
 
     def on_graph_event(self, event):
         if self.pinned:

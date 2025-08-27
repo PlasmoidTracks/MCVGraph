@@ -1,6 +1,6 @@
 # graphs/LinePlot.py
 
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtGui
 import numpy as np
 import pyqtgraph as pg
 from GraphBus import GraphEventClient
@@ -78,6 +78,8 @@ class LinePlot:
 
         self.graph = GraphEventClient(self, "LinePlot")
         self.data_source.data_updated.connect(self._update_plot)
+
+        self._subset_only_mode = False
 
         self._cursor = None
         self._play_timer = QtCore.QTimer()
@@ -178,11 +180,11 @@ class LinePlot:
     def select_range(self, t_min, t_max, source=None):
         if self._order_indices is None or self._time_axis is None:
             return
+
         mask = (self._time_axis >= t_min) & (self._time_axis <= t_max)
-        indices = self._order_indices[mask]
-        payload = {"indices": indices.copy(), "source": self._source_name()}
-        self.graph.emit("ScatterPlot", "subset_indices", payload)
-        self.graph.emit("LinePlot", "subset_indices", payload)
+        raw_indices = self._order_indices[mask]
+        payload = {"indices": raw_indices.astype(int).copy(), "source": self._source_name()}
+        self.graph.emit_broadcast("subset_indices", payload)
 
     def get_selection_indices(self):
         src = self._source_name()
@@ -196,42 +198,98 @@ class LinePlot:
         return (x0, x1, y0, y1)
 
     def _update_plot(self):
-        data = self.data_source.get()
+        if self._plot_item is None:
+            return
 
-        order = self.argsort_func(data)
-        reverse = np.empty_like(order)
-        reverse[order] = np.arange(len(order))
+        raw = self.data_source.get()
+        n_raw = len(raw)
+        if n_raw == 0:
+            return
 
-        y_full = self.transform(data).reshape(-1).astype(np.float32)
-        n = len(y_full)
+        subset_only = getattr(self, "_subset_only_mode", False)
 
-        self._duration = n / self.sample_rate
-        self._time_axis = np.linspace(0.0, self._duration, n, endpoint=False)
-        self._order_indices = order
+        allowed_mask = np.ones(n_raw, dtype=bool)
+        if subset_only:
+            combined = np.zeros(n_raw, dtype=bool)
+            for src, (inds, _) in self._highlight_indices.items():
+                if src != self._source_name():
+                    ii = np.asarray(inds, dtype=int)
+                    ii = ii[(ii >= 0) & (ii < n_raw)]
+                    combined[ii] = True
+            if np.any(combined):
+                allowed_mask = combined
 
-        self._curve.setData(self._time_axis, y_full)
-        self._waveform = y_full
+
+        if subset_only and np.any(allowed_mask):
+            view_raw_idx = np.where(allowed_mask)[0]
+            data_view = raw[allowed_mask]
+        else:
+            view_raw_idx = np.arange(n_raw)
+            data_view = raw
+
+
+        order_view = self.argsort_func(data_view)
+        order_view = np.asarray(order_view, dtype=int)
+        order_view = order_view[(order_view >= 0) & (order_view < len(data_view))]
+        if order_view.size != len(data_view):
+
+            order_view = np.arange(len(data_view), dtype=int)
+
+        y_view = self.transform(data_view).reshape(-1).astype(np.float32)
+        n_view = len(y_view)
+        if n_view == 0:
+            return
+
+
+        y_plot = y_view[order_view]
+
+        sub_index_of_raw = np.full(n_raw, -1, dtype=int)
+        sub_index_of_raw[view_raw_idx] = np.arange(n_view)
+        reverse_view = np.empty_like(order_view)
+        reverse_view[order_view] = np.arange(n_view)
+
+        self._duration = n_view / self.sample_rate
+        self._time_axis = np.linspace(0.0, self._duration, n_view, endpoint=False)
+
+        self._order_indices = view_raw_idx[order_view]
+
+        if self._curve is not None:
+            self._curve.setData(self._time_axis, y_plot)
+        self._waveform = y_plot
+
 
         for it in list(self._highlight_curves.values()):
             if it.scene() is not None:
                 self._plot_item.removeItem(it)
         self._highlight_curves.clear()
 
-        for src, (global_idx, color) in self._highlight_indices.items():
-            gi = np.asarray(global_idx, dtype=int)
-            gi = gi[(gi >= 0) & (gi < n)]
+        for src, (global_idx_raw, color) in self._highlight_indices.items():
+            gi = np.asarray(global_idx_raw, dtype=int)
+            gi = gi[(gi >= 0) & (gi < n_raw)]
             if gi.size == 0:
                 continue
-            pos = np.sort(reverse[gi])
-            y_overlay = np.full(n, np.nan, dtype=np.float32)
-            y_overlay[pos] = y_full[pos]
-            curve = pg.PlotCurveItem(self._time_axis, y_overlay, pen=pg.mkPen(color=color, width=self._highlight_pen_width))
+
+            sub_idx = sub_index_of_raw[gi]
+            sub_idx = sub_idx[sub_idx >= 0]
+            if sub_idx.size == 0:
+                continue
+
+            pos = reverse_view[sub_idx]
+            pos = np.sort(pos)
+            overlay = np.full(n_view, np.nan, dtype=np.float32)
+            overlay[pos] = y_plot[pos]
+
+            curve = pg.PlotCurveItem(self._time_axis, overlay,
+                                     pen=pg.mkPen(color=color, width=self._highlight_pen_width))
             curve.setOpacity(self._opacity)
             curve.setZValue(self._z + 1)
             self._plot_item.addItem(curve)
             self._highlight_curves[src] = curve
 
     def handle_scene_event(self, event, view_box):
+        if QtGui.QGuiApplication.keyboardModifiers() & QtCore.Qt.ControlModifier:
+            return False
+
         if not self._focus:
             return False
 
@@ -255,8 +313,7 @@ class LinePlot:
                     self._selection_origin = event.scenePos()
 
                     payload = {"source": self._source_name()}
-                    self.graph.emit("ScatterPlot", "clear_highlight", payload)
-                    self.graph.emit("LinePlot", "clear_highlight", payload)
+                    self.graph.emit_broadcast("clear_highlight", payload)
                     return True
 
             self._selection_origin = event.scenePos()
@@ -326,9 +383,37 @@ class LinePlot:
     def expose_actions(self, parent=None):
         actions = []
 
+        subset_action = pg.QtWidgets.QAction("Filter by Selection (subset-only mode)", parent, checkable=True)
+        subset_action.setChecked(getattr(self, "_subset_only_mode", False))
+        def _toggle_subset():
+            self._subset_only_mode = subset_action.isChecked()
+            self._update_plot()
+        subset_action.toggled.connect(_toggle_subset)
+        actions.append(subset_action)
+
         play_action = pg.QtWidgets.QAction("Play waveform", parent)
         play_action.triggered.connect(self._play_audio)
         actions.append(play_action)
+
+        base_color_action = pg.QtWidgets.QAction("Set Non-selected Color…", parent)
+        def _set_base_color():
+            col = pg.QtWidgets.QColorDialog.getColor(QtGui.QColor(self._base_pen), None, "Pick base color")
+            if col.isValid():
+                self._base_pen = col.name()
+                if self._curve is not None:
+                    self._curve.setPen(pg.mkPen(self._base_pen))
+                self._update_plot()
+        base_color_action.triggered.connect(_set_base_color)
+        actions.append(base_color_action)
+
+        sel_color_action = pg.QtWidgets.QAction("Set Selection Color…", parent)
+        def _set_sel_color():
+            col = pg.QtWidgets.QColorDialog.getColor(QtGui.QColor(self._selection_color), None, "Pick selection color")
+            if col.isValid():
+                self.set_selection_color(col.name())
+                self._update_plot()
+        sel_color_action.triggered.connect(_set_sel_color)
+        actions.append(sel_color_action)
 
         return actions
 

@@ -5,6 +5,7 @@ from PyQt5 import QtWidgets, QtCore
 from graphs.ScatterPlot import ScatterPlot
 from graphs.LinePlot import LinePlot
 from graphs.HeatmapPlot import HeatmapPlot
+from graphs.PolylinePlot import PolylinePlot
 from DataSource import DataSource
 from canvas.Canvas import Canvas
 
@@ -54,7 +55,8 @@ def init_state(n = 500, pos_scale = 1.0, vel_scale = 0.1, seed = None):
 
     return np.column_stack((x, y, vx, vy, ax, ay))
 
-def run_simulation_loop(data_source, *, dt_seconds=1/120.0, target_hz=60.0, G=0.0005, r_min=0.1, stop_event=None):
+def run_simulation_loop(data_source, edges_ds, *, dt_seconds=1/120.0, target_hz=60.0,
+                        G=0.0005, r_min=0.1, k=3, stop_event=None):
     while stop_event is None or not stop_event.is_set():
         state = data_source.get()
         pos = state[:, 0:2]
@@ -63,11 +65,12 @@ def run_simulation_loop(data_source, *, dt_seconds=1/120.0, target_hz=60.0, G=0.
         diff = pos[None, :, :] - pos[:, None, :]
         dist2 = np.sum(diff * diff, axis=2)
         np.fill_diagonal(dist2, np.inf)
-        dist = np.sqrt(dist2)
-        dist = np.maximum(dist, r_min)
 
-        inv_r3 = 1.0 / (dist * dist * dist)
+        dist_geom = np.sqrt(dist2)
 
+        dist_phys = np.maximum(dist_geom, r_min)
+
+        inv_r3 = 1.0 / (dist_phys * dist_phys * dist_phys)
         acc = G * np.sum(diff * inv_r3[:, :, None], axis=1)
 
         vel = vel + acc * dt_seconds
@@ -83,9 +86,20 @@ def run_simulation_loop(data_source, *, dt_seconds=1/120.0, target_hz=60.0, G=0.
         vel[out_y, 1] *= -0.5
         new_state = np.column_stack((pos, vel, acc))
         data_source.set(new_state)
+
+        edges = []
+        n_points = len(pos)
+
+        for i in range(n_points):
+            nearest = np.argsort(dist_geom[i])[:3]
+            for j in nearest[1:3]:
+                edges.append([i, j])
+
+        edges_ds.set(np.array(edges, dtype=int))
+
         time.sleep(0.016)
 
-N = 500
+N = 100
 state0 = init_state(n=N, pos_scale=1.0, vel_scale=0.06, seed=None)
 data_source = DataSource(state0)
 
@@ -96,6 +110,7 @@ canvas_velocity = Canvas()
 canvas_acceleration = Canvas()
 canvas_sonify = Canvas()
 canvas_density = Canvas()
+canvas_polyline = Canvas()
 
 scatter_pos = ScatterPlot(data_source)
 scatter_pos.set_transform(position_transform)
@@ -107,7 +122,7 @@ scatter_acc = ScatterPlot(data_source)
 scatter_acc.set_transform(acceleration_transform)
 
 line_sonify = LinePlot(
-    data_source,
+    data_source=data_source,
     sample_rate=1000,
     transform=acceleration_sonify_transform,
 )
@@ -121,10 +136,21 @@ heatmap_plot = HeatmapPlot(
 )
 heatmap_plot.set_translation(-5.0, -5.0)
 
+vertices_ds = data_source  
+edges_ds = DataSource(np.zeros((0, 2), dtype=int))
+
+polyline_plot = PolylinePlot(
+    vertices=vertices_ds,
+    edges=edges_ds,
+    color="orange",
+    line_width=1.5,
+)
+
 canvas_position.plot(scatter_pos)
 canvas_position.plot(scatter_vel)
 canvas_position.plot(scatter_acc)
 canvas_position.plot(heatmap_plot)
+canvas_position.plot(polyline_plot)
 canvas_position.show()
 
 canvas_velocity.plot(scatter_vel)
@@ -139,16 +165,20 @@ canvas_sonify.show()
 canvas_density.plot(heatmap_plot)
 canvas_density.show()
 
+canvas_polyline.plot(polyline_plot)
+canvas_polyline.show()
 
 stop_event = threading.Event()
 sim_thread = threading.Thread(
     target=run_simulation_loop,
     kwargs=dict(
         data_source=data_source,
+        edges_ds=edges_ds,
         dt_seconds=1/120.0,
         target_hz=60.0,
         G=0.005,
         r_min=0.1,
+        k=1,
         stop_event=stop_event,
     ),
     daemon=True,

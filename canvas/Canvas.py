@@ -57,14 +57,12 @@ class Canvas(GraphWidget):
             self._layer_actions_submenu_shell()
 
     def set_view_port(self, x1, y1, x2, y2):
-        """Set the visible view (pan/zoom) of the canvas to the given bounds."""
         try:
             self.plot_widget.setXRange(x1, x2, padding=0)
             self.plot_widget.setYRange(y1, y2, padding=0)
             self.view_box.disableAutoRange()
         except Exception as e:
             print(f"[Canvas.set_view_port] Failed to set view: {e}")
-
 
     def _focus_submenu_shell(self):
         if self._view_menu is None:

@@ -10,13 +10,13 @@ class HeatmapPlot:
     _color_counter = 0
 
     def __init__(
-        self, 
-        data_source, 
-        *, 
+        self,
+        data_source,
+        *,
         transform=lambda x: x,
-        normalizer=None, 
+        normalizer=None,
         scale_x = 1.0,
-        scale_y = 1.0, 
+        scale_y = 1.0,
         graph_name = "Heatmap"):
 
         self.data_source = data_source
@@ -55,21 +55,23 @@ class HeatmapPlot:
 
         self.data_source.data_updated.connect(self._update_plot)
 
+        self._subset_only_mode = False
+
     def set_transform(self, transform):
         self.transform = transform
         self._update_plot()
-    
+
     def set_normalizer(self, normalizer):
         self.normalizer = normalizer
         self._update_plot()
-    
+
     def _linear_normalizer(self, arr):
         vmin = np.nanmin(arr)
         vmax = np.nanmax(arr)
         if not np.isfinite(vmin) or not np.isfinite(vmax) or vmax <= vmin:
             return np.zeros_like(arr)
         return (arr - vmin) / (vmax - vmin)
-        
+
     def _viridis_lut(self, normalized):
         x = np.clip((normalized * 255), 0, 255)
         t = x / 255.0
@@ -92,13 +94,13 @@ class HeatmapPlot:
     def set_focus(self, focus):
         self._focus = focus
 
-    def get_color(self): 
+    def get_color(self):
         return self._selection_color
 
-    def set_selection_color(self, color): 
+    def set_selection_color(self, color):
         self._selection_color = str(color)
 
-    def set_color(self, color): 
+    def set_color(self, color):
         self.set_selection_color(color)
 
     def set_translation(self, tx, ty):
@@ -110,7 +112,6 @@ class HeatmapPlot:
         self.scale_x = tx
         self.scale_y = ty
         self._update_plot()
-
 
     def add_to(self, plot_item, view_box):
         self._plot_item = plot_item
@@ -134,9 +135,31 @@ class HeatmapPlot:
         return (0.0, W * self.scale_x, 0.0, H * self.scale_y)
 
     def handle_event(self, event_type, payload):
-        return
+        if event_type == "subset_indices":
+            indices = np.array(payload["indices"], dtype=int)
+            source = payload["source"]
+            color = payload.get("color", "r")
+            self._highlight_indices[source] = (indices, color)
+            self._update_plot()
+        elif event_type == "clear_highlight":
+            source = payload["source"]
+            if source in self._highlight_indices:
+                del self._highlight_indices[source]
+                self._update_plot()
+        elif event_type == "data_update":
+            self._update_plot()
 
     def expose_actions(self, parent=None):
+        actions = []
+
+        subset_action = QtWidgets.QAction("Filter by Selection (subset-only mode)", parent, checkable=True)
+        subset_action.setChecked(getattr(self, "_subset_only_mode", False))
+        def _toggle_subset():
+            self._subset_only_mode = subset_action.isChecked()
+            self._update_plot()
+        subset_action.toggled.connect(_toggle_subset)
+        actions.append(subset_action)
+
         act_scale = QtWidgets.QAction("Set cell scale…", parent)
         def _set_scale():
             sx, okx = QtWidgets.QInputDialog.getDouble(None, "Cell width", "scale_x:", self.scale_x, -1000, 1000, 3)
@@ -146,18 +169,38 @@ class HeatmapPlot:
             self.scale_x, self.scale_y = sx, sy
             self._update_plot()
         act_scale.triggered.connect(_set_scale)
+        actions.append(act_scale)
 
-        return [act_scale]
+        return actions
 
     def _update_plot(self):
         if self._img is None:
             return
+
         raw = self.data_source.get()
+        n_raw = len(raw)
+
+        subset_only = getattr(self, "_subset_only_mode", False)
+
+        if subset_only and n_raw > 0:
+            allowed_mask = np.ones(n_raw, dtype=bool)
+            combined = np.zeros(n_raw, dtype=bool)
+            for src, (inds, _) in self._highlight_indices.items():
+                if src != self._source_name():
+                    ii = np.asarray(inds, dtype=int)
+                    ii = ii[(ii >= 0) & (ii < n_raw)]
+                    combined[ii] = True
+            if np.any(combined):
+                allowed_mask = combined
+                raw = raw[allowed_mask]
+
         mat = self.transform(raw)
         norm = self.normalizer(mat)
         rgba = self._viridis_lut(norm)
+
         self._H, self._W = norm.shape
         self._img.setImage(rgba, levels=(0, 255), autoLevels=False)
+
         tr = QtGui.QTransform()
         tr.translate(self._translation_x, self._translation_y)
         tr.scale(self.scale_x, self.scale_y)
@@ -211,7 +254,7 @@ class HeatmapPlot:
     def close(self):
         if hasattr(self, "graph") and hasattr(self.graph, "disconnect"):
             self.graph.disconnect()
-    
+
     def clone(self):
         dup = HeatmapPlot(
             data_source=self.data_source,

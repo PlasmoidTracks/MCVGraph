@@ -75,6 +75,8 @@ class ScatterPlot:
 
         self.data_source.data_updated.connect(self._update_plot)
 
+        self._subset_only_mode = False
+
     def handle_event(self, event_type, payload):
         if event_type == "subset_indices":
             indices = np.array(payload["indices"], dtype=int)
@@ -137,18 +139,52 @@ class ScatterPlot:
     def select_rectangle(self, x0, y0, x1, y1, source=None):
         x0, x1 = sorted([x0, x1])
         y0, y1 = sorted([y0, y1])
-        data = self.transform(self.data_source.get())
-        mask = (data[:, 0] >= x0) & (data[:, 0] <= x1) & (data[:, 1] >= y0) & (data[:, 1] <= y1)
-        indices = np.where(mask)[0]
-        payload = {"indices": indices.copy(), "source": self._source_name()}
+
+        raw = self.data_source.get()
+        n_raw = len(raw)
+
+        subset_only = getattr(self, "_subset_only_mode", False)
+
+        allowed_mask = np.ones(n_raw, dtype=bool)
+        if subset_only:
+            combined = np.zeros(n_raw, dtype=bool)
+            for src, (inds, _) in self._highlight_indices.items():
+                if src != self._source_name():
+                    ii = np.asarray(inds, dtype=int)
+                    ii = ii[(ii >= 0) & (ii < n_raw)]
+                    combined[ii] = True
+            if np.any(combined):
+                allowed_mask = combined
+
+
+        if subset_only and np.any(allowed_mask):
+            view_raw_idx = np.where(allowed_mask)[0]
+            data_view = self.transform(raw[allowed_mask])
+
+            rect_mask = (
+                (data_view[:, 0] >= x0) & (data_view[:, 0] <= x1) &
+                (data_view[:, 1] >= y0) & (data_view[:, 1] <= y1)
+            )
+
+            indices_raw = view_raw_idx[np.where(rect_mask)[0]]
+        else:
+            data_full = self.transform(raw)
+            rect_mask = (
+                (data_full[:, 0] >= x0) & (data_full[:, 0] <= x1) &
+                (data_full[:, 1] >= y0) & (data_full[:, 1] <= y1)
+            )
+            indices_raw = np.where(rect_mask)[0]
+
+        payload = {"indices": indices_raw.astype(int).copy(), "source": self._source_name()}
         self.graph.emit("ScatterPlot", "subset_indices", payload)
         self.graph.emit("LinePlot", "subset_indices", payload)
+        self.graph.emit("HeatmapPlot", "subset_indices", payload)
+        self.graph.emit("PolylinePlot", "subset_indices", payload)
 
     def select_indices(self, indices, source=None):
         indices = np.asarray(indices, dtype=int)
         payload = {"indices": indices.copy(), "source": self._source_name()}
-        self.graph.emit("ScatterPlot", "subset_indices", payload)
-        self.graph.emit("LinePlot", "subset_indices", payload)
+        self.graph.emit_broadcast("subset_indices", payload)
 
     def get_selection_indices(self):
         src = self._source_name()
@@ -166,20 +202,61 @@ class ScatterPlot:
     def _update_plot(self):
         if self._plot_item is None:
             return
+
         raw = self.data_source.get()
-        data = self.transform(raw)
+        n_raw = len(raw)
+        if n_raw == 0:
+            return
 
-        n = len(data)
-        draw_counts = np.zeros(n, dtype=int)
+        subset_only = getattr(self, "_subset_only_mode", False)
 
-        combined_highlight_mask = np.zeros(n, dtype=bool)
+        allowed_mask = np.ones(n_raw, dtype=bool)
+        if subset_only:
+            combined = np.zeros(n_raw, dtype=bool)
+            for src, (inds, _) in self._highlight_indices.items():
+                if src != self._source_name():
+                    ii = np.asarray(inds, dtype=int)
+                    ii = ii[(ii >= 0) & (ii < n_raw)]
+                    combined[ii] = True
+            if np.any(combined):
+                allowed_mask = combined
+
+
+        if subset_only and np.any(allowed_mask):
+            view_raw_idx = np.where(allowed_mask)[0]
+            data = self.transform(raw[allowed_mask])
+            n_view = len(data)
+            inv_map = np.full(n_raw, -1, dtype=int)
+            inv_map[view_raw_idx] = np.arange(n_view)
+        else:
+            data = self.transform(raw)
+            n_view = len(data)
+
+            inv_map = np.arange(n_raw, dtype=int)
+            if n_view != n_raw:
+
+                inv_map = np.clip(inv_map, 0, max(0, n_view - 1))
+
+        if n_view == 0:
+            return
+
+
+        draw_counts = np.zeros(n_view, dtype=int)
+
+        combined_highlight_mask = np.zeros(n_view, dtype=bool)
         for inds, _ in self._highlight_indices.values():
-            combined_highlight_mask[np.asarray(inds, dtype=int)] = True
+            ii_raw = np.asarray(inds, dtype=int)
+            ii_raw = ii_raw[(ii_raw >= 0) & (ii_raw < n_raw)]
+            pos = inv_map[ii_raw]
+            pos = pos[pos >= 0]
+            combined_highlight_mask[pos] = True
+
         base_mask = ~combined_highlight_mask
 
         base_size = self._base_marker_size
         highlight_base_size = base_size + 2
         size_decrement = 3
+
 
         self._scatter_base.setData(
             x=data[base_mask, 0],
@@ -193,23 +270,28 @@ class ScatterPlot:
                 self._plot_item.removeItem(it)
         self._highlight_items.clear()
 
-        max_draw_counts = np.zeros(n, dtype=int)
+        max_draw_counts = np.zeros(n_view, dtype=int)
         for inds, _ in self._highlight_indices.values():
-            ii = np.asarray(inds, dtype=int)
-            ii = ii[(ii >= 0) & (ii < n)]
-            np.add.at(max_draw_counts, ii, 1)
+            ii_raw = np.asarray(inds, dtype=int)
+            ii_raw = ii_raw[(ii_raw >= 0) & (ii_raw < n_raw)]
+            pos = inv_map[ii_raw]
+            pos = pos[pos >= 0]
+            np.add.at(max_draw_counts, pos, 1)
 
         for src, (inds, color) in self._highlight_indices.items():
-            ii = np.asarray(inds, dtype=int)
-            ii = ii[(ii >= 0) & (ii < n)]
-            if ii.size == 0:
+            ii_raw = np.asarray(inds, dtype=int)
+            ii_raw = ii_raw[(ii_raw >= 0) & (ii_raw < n_raw)]
+            pos = inv_map[ii_raw]
+            pos = pos[pos >= 0]
+            if pos.size == 0:
                 continue
+
             spots = []
-            for i in ii:
-                total = max_draw_counts[i]
-                size = max(2, highlight_base_size + ((total - 1) * 2) - draw_counts[i] * size_decrement)
-                spots.append({'pos': data[i], 'brush': color, 'size': size})
-                draw_counts[i] += 1
+            for p in pos:
+                total = max_draw_counts[p]
+                size = max(2, highlight_base_size + ((total - 1) * 2) - draw_counts[p] * size_decrement)
+                spots.append({'pos': data[p], 'brush': color, 'size': size})
+                draw_counts[p] += 1
 
             scat = pg.ScatterPlotItem(pen=None)
             scat.setData(spots)
@@ -308,6 +390,8 @@ class ScatterPlot:
         payload = {"source": self._source_name()}
         self.graph.emit("ScatterPlot", "clear_highlight", payload)
         self.graph.emit("LinePlot", "clear_highlight", payload)
+        self.graph.emit("HeatmapPlot", "clear_highlight", payload)
+        self.graph.emit("PolylinePlot", "clear_highlight", payload)
 
     def _remove_selection_rect(self):
         if self._selection_rect is not None and self._selection_rect.scene() is not None:
@@ -350,6 +434,13 @@ class ScatterPlot:
     def expose_actions(self, parent=None):
         parent = parent or None
 
+        subset_action = QtWidgets.QAction("Filter by Selection (subset-only mode)", parent, checkable=True)
+        subset_action.setChecked(getattr(self, "_subset_only_mode", False))
+        def _toggle_subset():
+            self._subset_only_mode = subset_action.isChecked()
+            self._update_plot()
+        subset_action.toggled.connect(_toggle_subset)
+
         lock_action = QtWidgets.QAction("Lock Selection", parent, checkable=True)
         lock_action.setChecked(self.selection_locked)
         def _toggle_lock():
@@ -373,7 +464,15 @@ class ScatterPlot:
                 self.set_color_non_selected(col.name())
         color_action.triggered.connect(_set_color)
 
-        return [lock_action, marker_action, color_action]
+        sel_color_action = QtWidgets.QAction("Set Selection Color…", parent)
+        def _set_sel_color():
+            col = QtWidgets.QColorDialog.getColor(QtGui.QColor(self._selection_color), None, "Pick selection color")
+            if col.isValid():
+                self.set_selection_color(col.name())
+                self._update_plot()
+        sel_color_action.triggered.connect(_set_sel_color)
+
+        return [subset_action, lock_action, marker_action, color_action, sel_color_action]
 
     def set_selection_locked(self, locked):
         self.selection_locked = bool(locked)

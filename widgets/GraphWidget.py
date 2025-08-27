@@ -122,8 +122,7 @@ class GraphWidget(QtWidgets.QWidget):
 
         def clear_selection():
             if hasattr(self, "graph"):
-                self.graph.emit("ScatterPlot", "clear_highlight", {"source": self.graph.owner.graph_name})
-                self.graph.emit("LinePlot", "clear_highlight", {"source": self.graph.owner.graph_name})
+                self.graph.emit_broadcast("clear_highlight", {"source": self.graph.owner.graph_name})
 
         selection_menu.addAction("Deselect all", clear_selection)
 
@@ -315,7 +314,7 @@ class GraphWidget(QtWidgets.QWidget):
         new_width = self.link_target.width() * self._scale_width_factor
         screen = QtWidgets.QApplication.primaryScreen().availableGeometry()
         new_width = min(new_width, screen.width())
-        self.resize(new_width, self.height())
+        self.resize(int(new_width), self.height())
 
     def _scale_height(self, factor):
         if not self.link_target:
@@ -324,7 +323,7 @@ class GraphWidget(QtWidgets.QWidget):
         new_height = self.link_target.height() * self._scale_height_factor
         screen = QtWidgets.QApplication.primaryScreen().availableGeometry()
         new_height = min(new_height, screen.height())
-        self.resize(self.width(), new_height)
+        self.resize(self.width(), int(new_height))
 
     def _custom_scale_dialog(self):
         if not self.link_target:
@@ -541,10 +540,11 @@ class GraphWidget(QtWidgets.QWidget):
                 else:
                     instance.link_target = None
 
-        if hasattr(self, "graph") and hasattr(self.graph, "emit"):
+        if hasattr(self, "graph"):
             self.graph.emit("ScatterPlot", "clear_highlight", {
                 "source": self.graph.owner.graph_name
             })
+            self.graph.disconnect()
 
         GraphWidget._instances.discard(self)
         super().closeEvent(event)
@@ -656,10 +656,8 @@ class GraphWidget(QtWidgets.QWidget):
         indices = np.asarray(indices, dtype=int)
 
         payload = {"indices": indices.copy(), "source": source}
-        self.graph.emit("ScatterPlot", "clear_highlight", {"source": source})
-        self.graph.emit("LinePlot", "clear_highlight", {"source": source})
-        self.graph.emit("ScatterPlot", "subset_indices", payload)
-        self.graph.emit("LinePlot", "subset_indices", payload)
+        self.graph.emit_broadcast("clear_highlight", {"source": source})
+        self.graph.emit_broadcast("clear_highlight", {"subset_indices": payload})
 
     def _create_shortcuts(self):
         def bind(seq, func):
@@ -820,7 +818,7 @@ class GraphWidget(QtWidgets.QWidget):
                 name = w.get("name")
                 inst = name_to_inst.get(name)
                 if inst is None:
-                    continue  # decision 4: skip missing
+                    continue
 
 
                 geom = w.get("geometry", {})
