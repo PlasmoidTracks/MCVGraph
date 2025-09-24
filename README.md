@@ -245,7 +245,7 @@ then this could mean that the python instance was trying to use the system-wide,
 To fix this issue, remove or rename the `PyQt5-sip` package from the system-wide python environment and install it manually in the venv. This is **NOT** recommended. 
 The name is typically something like `PyQt5_sip-x.y.z.egg-info`
 
-```bash
+```sh
 sudo mv /usr/lib/python3/dist-packages/PyQt5_sip-12.13.0.egg-info /usr/lib/python3/dist-packages/PyQt5_sip-12.13.0.egg-info_DISABLED
 # while in venv
 pip install pyqt5-sip
@@ -268,7 +268,7 @@ Building wheels for collected packages: PyQt5-sip
       running build_ext
       building 'PyQt5.sip' extension
       creating build/temp.linux-x86_64-cpython-3XY
-      x86_64-linux-gnu-gcc -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O2 -Wall -g -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -g -fwrapv -O2 -fPIC -I/home/lukas/Schreibtisch/UNI/Bachelor/Project_cutdown/venv/include -I/usr/include/python3.XY -c apiversions.c -o build/temp.linux-x86_64-cpython-3XY/apiversions.o
+      x86_64-linux-gnu-gcc -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O2 -Wall -g -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -g -fwrapv -O2 -fPIC -I/home/usr/venv/include -I/usr/include/python3.XY -c apiversions.c -o build/temp.linux-x86_64-cpython-3XY/apiversions.o
       apiversions.c:12:10: fatal error: Python.h: Datei oder Verzeichnis nicht gefunden
          12 | #include <Python.h>
             |          ^~~~~~~~~~
@@ -290,6 +290,39 @@ then the solution is to install the respective `Header files and static librarie
 ```sh
 sudo apt install python3.XY-dev
 pip install "[PATH TO PACKAGE\]/mcvgraph-0.1.0-py3-none-any.whl[windows]"
+```
+
+## Windows
+
+### BackendUnavailable: Cannot import 'setuptools.build_meta'
+
+if an error looks something like this: 
+```sh
+  File "C:\Users\usr\venv\Lib\site-packages\pip\_internal\operations\prepare.py", line 77, in _get_prepared_distribution
+    abstract_dist.prepare_distribution_metadata(
+  File "C:\Users\usr\venv\Lib\site-packages\pip\_internal\distributions\sdist.py", line 59, in prepare_distribution_metadata
+    self._install_build_reqs(build_env_installer)
+  File "C:\Users\usr\venv\Lib\site-packages\pip\_internal\distributions\sdist.py", line 133, in _install_build_reqs
+    build_reqs = self._get_build_requires_wheel()
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\usr\venv\Lib\site-packages\pip\_internal\distributions\sdist.py", line 108, in _get_build_requires_wheel
+    return backend.get_requires_for_build_wheel()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\usr\venv\Lib\site-packages\pip\_internal\utils\misc.py", line 694, in get_requires_for_build_wheel
+    return super().get_requires_for_build_wheel(config_settings=cs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\usr\venv\Lib\site-packages\pip\_vendor\pyproject_hooks\_impl.py", line 196, in get_requires_for_build_wheel
+    return self._call_hook(
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\usr\venv\Lib\site-packages\pip\_vendor\pyproject_hooks\_impl.py", line 402, in _call_hook
+    raise BackendUnavailable(
+pip._vendor.pyproject_hooks._impl.BackendUnavailable: Cannot import 'setuptools.build_meta'
+```
+
+then the following script might help
+
+```sh
+python -m pip install --upgrade pip setuptools wheel
 ```
 
 ---
