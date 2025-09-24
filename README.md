@@ -19,19 +19,19 @@ This design allows multiple visualizations to remain synchronized when exploring
 
 ### Data Flow and Communication
 1. **DataSource**  
-    - Wraps a NumPy array (or similar structure).  
-    - Emits **change signals** whenever the dataset is modified (e.g., new data, filters applied).  
+    - Wraps a NumPy array, or any structure that can be cast into a numpy.array. 
+    - Emits **change signals** whenever the dataset is modified.  
     - Graphs connected to this `DataSource` automatically update when the data changes.  
 
 2. **GraphBus (Singleton)**  
     - Central event dispatcher, ensuring there is **only one instance** across the application.  
     - Graphs and canvases register themselves with the `GraphBus`.  
-    - Provides a pub-sub model: events (e.g., selection updates, redraw triggers) are broadcast to all registered listeners.  
+    - Events (e.g., selection updates, redraw triggers) are broadcast to all registered listeners.  
 
 3. **Graphs**  
     - Each graph (scatter plot, line plot, etc.) is a **layer** on a `Canvas`.  
     - They subscribe to data updates from their `DataSource`.  
-    - They also subscribe to global events from the `GraphBus`, such as selections or synchronized zooming.  
+    - They also subscribe to global events from the `GraphBus`.  
     - Graphs can emit their own events (like a user selection) which propagate through the `GraphBus` to other components.  
 
 4. **Canvas and Layering**  
@@ -41,25 +41,6 @@ This design allows multiple visualizations to remain synchronized when exploring
     - The `Canvas` registers itself with the `GraphBus` to receive and forward events.  
 
 ---
-
-### Events and Selections
-- **Events** are lightweight messages exchanged through the `GraphBus`.  
-- **Selections** (e.g., when the user clicks or drags a region in one graph) are represented as subsets of indices or masks.  
-- A selection made in one graph:  
-  1. Triggers a signal.  
-  2. Propagates via the `GraphBus`.  
-  3. Other graphs with the same `DataSource` update their rendering to highlight the same subset.  
-
-This allows **cross-linked views**: selecting points in a scatter plot highlights them in all other linked visualizations.
-
----
-
-### Summary of Interaction
-1. **User changes dataset** → `DataSource` emits signal → all connected graphs redraw.  
-2. **User makes a selection** → Graph emits event → `GraphBus` propagates → all other graphs reflect the selection.  
-3. **Canvas manages layering** → multiple graphs can coexist and remain synchronized.  
-
-
 
 # Setup Instructions 
 
@@ -146,7 +127,7 @@ python "main.py"
 
 --- 
 
-## Setup using package
+## Setup using wheel package
 
 ### Linux
 
