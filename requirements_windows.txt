@@ -1,0 +1,5 @@
+PyQt5>=5.15.10
+PyQt5-sip>=12.15.0
+pyqtgraph>=0.13.3
+numpy==1.24.4
+sounddevice>=0.5.2

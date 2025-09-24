@@ -1,13 +1,24 @@
+# main_gravity.py
+
+import os
+import sys
 import time
 import threading
 import numpy as np
 from PyQt5 import QtWidgets, QtCore
-from graphs.ScatterPlot import ScatterPlot
-from graphs.LinePlot import LinePlot
-from graphs.HeatmapPlot import HeatmapPlot
-from graphs.PolylinePlot import PolylinePlot
-from DataSource import DataSource
-from canvas.Canvas import Canvas
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+import MCVGraph
+from MCVGraph.graphs.ScatterPlot import ScatterPlot
+from MCVGraph.graphs.LinePlot import LinePlot
+from MCVGraph.graphs.HeatmapPlot import HeatmapPlot
+from MCVGraph.graphs.PolylinePlot import PolylinePlot
+from MCVGraph.DataSource import DataSource
+from MCVGraph.GraphBus import GraphBus
+from MCVGraph.canvas.Canvas import Canvas
 
 def position_transform(data):
     return data[:, 0:2]
@@ -146,15 +157,15 @@ polyline_plot = PolylinePlot(
     line_width=1.5,
 )
 
+canvas_velocity.plot(scatter_vel)
+canvas_velocity.show()
+
 canvas_position.plot(scatter_pos)
 canvas_position.plot(scatter_vel)
 canvas_position.plot(scatter_acc)
 canvas_position.plot(heatmap_plot)
 canvas_position.plot(polyline_plot)
 canvas_position.show()
-
-canvas_velocity.plot(scatter_vel)
-canvas_velocity.show()
 
 canvas_acceleration.plot(scatter_acc)
 canvas_acceleration.show()
