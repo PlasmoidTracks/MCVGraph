@@ -8,10 +8,8 @@ from MCVGraph.GraphBus import GraphEventClient
 from MCVGraph.EventType import EventType
 from MCVGraph.BasePlot import GraphBase
 import time
-try:
-    import sounddevice as sd
-except:
-    pass
+import warnings
+
 
 class LinePlot(GraphBase):
     _DEFAULT_COLORS = ['red', 'lime', 'blue', 'magenta', 'cyan', 'orange']
@@ -475,8 +473,15 @@ class LinePlot(GraphBase):
             self._cursor.setPos(0.0)
 
         self._playback_start_time = time.perf_counter()
-        sd.play(wf, self.sample_rate, blocking=False)
-        self._play_timer.start(self._playback_timer_ms)
+        try:
+            import sounddevice as sd
+            sd.play(wf, self.sample_rate, blocking=False)
+            self._play_timer.start(self._playback_timer_ms)
+        except Exception as e:
+            warnings.warn(f"Waveform playback unavailable: {e}")
+            self._cursor.setVisible(False)
+            self._playback_start_time = None
+
 
     def _update_cursor(self) -> None:
         """

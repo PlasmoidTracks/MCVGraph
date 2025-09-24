@@ -21,3 +21,4 @@ dist/
 # Project specific
 other/
 bench_results.*
+*.png

@@ -5,8 +5,7 @@ from typing import Any, Dict, List
 from MCVGraph.EventType import EventType
 
 class GraphEvent:
-    def __init__(self, source_type: str, event_type: str, payload: Any) -> None:
-        self.source_type: str = source_type
+    def __init__(self, event_type: str, payload: Any) -> None:
         self.event_type: str = event_type
         self.payload: Any = payload
 
@@ -34,7 +33,7 @@ class GraphBus:
             print(f"[GraphBus] Unregistering: {handler.node_type}")
             self.nodes.remove(handler)
 
-    def emit_event(self, source_type: str, event_type: str, payload: Any) -> None:
+    def emit_event(self, event_type: str, payload: Any) -> None:
         """
         Broadcast an event to all registered nodes.
         - Wraps the raw input into a `GraphEvent`.
@@ -43,7 +42,7 @@ class GraphBus:
         - Calls each node's `on_graph_event` method, letting them react
           to selection, highlight, or other Canvas/Graph events.
         """
-        event = GraphEvent(source_type, event_type, payload)
+        event = GraphEvent(event_type, payload)
         for node in list(self.nodes):
             node.on_graph_event(event)
 
@@ -64,11 +63,12 @@ class GraphEventClient(QObject):
         self.bus.unregister(self)
 
     def emit_broadcast(self, event_type: str, payload: Any) -> None:
+        # If the event is a selection event, also include the host color in the payload
         if event_type == EventType.SUBSET_INDICES and isinstance(payload, dict):
             if "color" not in payload and hasattr(self.owner, "get_color"):
                 payload = payload.copy()
                 payload["color"] = self.owner.get_color()
-        self.bus.emit_event(self.node_type, event_type, payload)
+        self.bus.emit_event(event_type, payload)
 
     def on_graph_event(self, event: GraphEvent) -> None:
         self.signal.emit(event.event_type, event.payload)

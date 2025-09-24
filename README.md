@@ -69,7 +69,7 @@ This library depends on PyQt5, which must come from the system packages on Linux
 
 ## System requirements
 
-This library can install on python versions from 3.8 up to 3.14, which is the latest version of python as of the time of writing. 
+This library is compatible with python versions from 3.8 up to 3.14, which is the latest version as of the time of writing. 
 
 ---
 
@@ -112,7 +112,7 @@ python "main.py"
 
 ### Windows
 
-#### 1. Create a virtual environment with system site packages 
+#### 1. Create a virtual environment
 ```powershell 
 python.exe -m venv venv 
 ``` 
@@ -165,9 +165,6 @@ source venv/bin/activate
 #### 3. Install Python package
 ```bash 
 pip install --upgrade pip 
-#either
-pip install MCVGraph
-#or
 pip install [PATH TO PACKAGE\]/mcvgraph-0.1.0-py3-none-any.whl
 ``` 
 
@@ -194,9 +191,6 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 #### 3. Install Python package
 ```
 python.exe -m pip install --upgrade pip
-#either
-pip install "MCVGraph[windows]"
-#or
 pip install "[PATH TO PACKAGE\]/mcvgraph-0.1.0-py3-none-any.whl[windows]"
 ``` 
 
@@ -266,9 +260,9 @@ Traceback (most recent call last):
 ModuleNotFoundError: No module named 'PyQt5.sip'
 ```
 
-then this could mean that the python instance was trying to use the system-wide, or otherwhere installed `PyQt5-sip` python package, instead of the venv one. 
+then this could mean that the python instance was trying to use the system-wide, or otherwise installed `PyQt5-sip` python package, instead of the venv one. 
 To fix this issue, remove or rename the `PyQt5-sip` package from the system-wide python environment and install it manually in the venv. This is **NOT** recommended. 
-The name istypically something like `PyQt5_sip-x.y.z.egg-info`
+The name is typically something like `PyQt5_sip-x.y.z.egg-info`
 
 ```bash
 sudo mv /usr/lib/python3/dist-packages/PyQt5_sip-12.13.0.egg-info /usr/lib/python3/dist-packages/PyQt5_sip-12.13.0.egg-info_DISABLED
@@ -324,12 +318,13 @@ pip install "[PATH TO PACKAGE\]/mcvgraph-0.1.0-py3-none-any.whl[windows]"
 In general, each plot can be interacted with by the mouse in two ways. In `selection mode`, which is the default mode, and `panning mode`. In `selection mode`, dragging the mouse over the canvas while holding the `left mouse button` usually results in a selection being started, though this is not defined for all graph types. `panning mode` can be entered by holding Control `[CTRL]` while dragging the mouse and holding either the left mouse button `[LMB]` or the right mouse button `[RMB]` will pan or scale the view of the canvas. In `panning mode`, using the `mouse wheel` also scales the view. 
 
 
+
 # Future work
 
 - Logical selection 
-    - Union (accumulating selection)
-    - Difference (subtracting from selection) 
-    - Xor (inverting selection)
+    - Union (an accumulative selection that compounds over multiple selections)
+    - Difference (subtracting the current selection from the previously selected points) 
+    - Xor (inverting selection, where previously selected points are unselected and previously unselected point become selected)
 - Continuous selection
     - Currently, selections only update the selected set of point while the selection bound is updated
     - A toggle might make that update continuous, updating the selection list even after finalizing the selection boundary
@@ -340,6 +335,22 @@ In general, each plot can be interacted with by the mouse in two ways. In `selec
         - This would also counteract fast changing selection where the full selection set needs to be computed before the next selection box can be calculated
     - Throttling
         - Graphs that are not displayed could be throttled
+- 3D visualization
+    - Adding interactive projections, orthographic or perspective, would allow for greater data analysis
+    - Simple controls for pitch, yaw, roll and positional translation could open up to emersive exploration of data
+- Automated view
+    - Adding predetermined or dynamic viewport paths, such as following a spline trajectory as the viewport center, automated zooming over time, or dynamically tracking a point or set of points, could enable programmatic control of camera motion. This would allow for reproducible visualizations, scripted exploration of datasets, and integration into automated analysis pipelines
+    - A subset of this functionality is already build-in through the use of pyqtgraph, through the auto-scaling option of the axis
+- Quality of Life
+    - To add an undo- and redo-operation, a history stack of operations could be added 
+    - Custom keybinds that trigger either custom functions, or execute a sequence of operations
+- Datasource flexibility
+    - Adding more convenience in how DataSource can be instantiated and used
+    - Allowing higher dimensional data as input and outputting multiple datasources at once
+    - Using one Datasource to feed multiple different graphs using different data sources
+- Timbral flexibility
+    - Add different sonification modes
+    - Let the user set a convolution function, which is applied to the sonification
 
 
 # Known issues

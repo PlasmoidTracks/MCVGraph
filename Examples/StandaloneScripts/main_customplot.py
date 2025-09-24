@@ -9,10 +9,9 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from MCVGraph.DataSource import DataSource
-from MCVGraph.canvas.Canvas import Canvas
-from MCVGraph.graphs.ScatterPlot import ScatterPlot
+from MCVGraph import ScatterPlot, DataSource, Canvas
 from Examples.CustomPlot.CustomPlot import CustomPlot
+
 
 # Create some random 2D data
 rng = np.random.default_rng(123)

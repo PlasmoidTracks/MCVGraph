@@ -11,14 +11,8 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-import MCVGraph
-from MCVGraph.graphs.ScatterPlot import ScatterPlot
-from MCVGraph.graphs.LinePlot import LinePlot
-from MCVGraph.graphs.HeatmapPlot import HeatmapPlot
-from MCVGraph.graphs.PolylinePlot import PolylinePlot
-from MCVGraph.DataSource import DataSource
-from MCVGraph.GraphBus import GraphBus
-from MCVGraph.canvas.Canvas import Canvas
+from MCVGraph import ScatterPlot, LinePlot, HeatmapPlot, PolylinePlot, DataSource, GraphBus, Canvas
+
 
 def position_transform(data):
     return data[:, 0:2]
