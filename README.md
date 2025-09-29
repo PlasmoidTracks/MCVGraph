@@ -223,6 +223,10 @@ canvas.show()
 app.exec()
 ```
 
+### For more Examples
+
+Look under `Examples/`. There are examples for Standalone scripts, as well as the respective `Jupyter Notebook` implementation. The `CustomPlot/` folder contains the Source implementation used in `Examples/Standalone/main_customplot.py` as well as `Examples/Notebook/main_customplot.ipynb`
+
 ---
 
 # Troubleshooting
@@ -365,6 +369,12 @@ In general, each plot can be interacted with by the mouse in two ways. In `selec
 - Timbral flexibility
     - Add different sonification modes
     - Let the user set a convolution function, which is applied to the sonification
+- Embeddings
+    - Direct embedding for jupyter notebooks, without QApplication
+- Code control
+    - Make more aspects of the setup doable via code (for example, window linking setup)
+    - Make that control work with less lines of code
+
 
 
 # Known issues
@@ -374,3 +384,7 @@ In general, each plot can be interacted with by the mouse in two ways. In `selec
 - Selections can be slow, especially with many updating graphs. 
 
 - Currently, Canvases generate clones of graphs when plotting them. This results in background graphs that still recieve events und updates, causing additional computation and lag. 
+
+- Snapping the canvases via code does not work properly for multi-monitor setups. 
+
+- 'use current offset' does not work properly when the targeted window is to the left of the linker, as the window width is added to the offset. 

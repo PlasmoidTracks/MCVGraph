@@ -749,19 +749,23 @@ class GraphWidget(QtWidgets.QWidget):
         if self._auto_match_height and self.link_target:
             self._scale_height(self._scale_height_factor)
     
-    def toggle_auto_match(self) -> None:
-        if not self._auto_match_width or not self._auto_match_height:
-            self._auto_match_width = True
-            self._auto_match_height = True
-        if self._auto_match_width and self._auto_match_height:
-            self._auto_match_width = False
-            self._auto_match_height = False
-        if self.link_target:
-            if self._auto_match_width:
-                self._scale_width(self._scale_width_factor)
-            if self._auto_match_height:
-                self._scale_height(self._scale_height_factor)
-
+    def toggle_auto_match(self, value=None) -> None:
+        if value is None:
+            if not self._auto_match_width or not self._auto_match_height:
+                self._auto_match_width = True
+                self._auto_match_height = True
+            if self._auto_match_width and self._auto_match_height:
+                self._auto_match_width = False
+                self._auto_match_height = False
+            if self.link_target:
+                if self._auto_match_width:
+                    self._scale_width(self._scale_width_factor)
+                if self._auto_match_height:
+                    self._scale_height(self._scale_height_factor)
+        else:
+            self._auto_match_width = value
+            self._auto_match_height = value
+    
     def _start_link_mode(self) -> None:
         self._awaiting_link_digit = True
 

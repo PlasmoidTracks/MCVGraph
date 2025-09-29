@@ -7,6 +7,9 @@ data = pd.DataFrame({
 })
 
 
+
+
+
 from bokeh.plotting import figure, show, output_file
 from bokeh.models import ColumnDataSource
 from bokeh.layouts import row
@@ -15,10 +18,10 @@ output_file("bokeh_linked.html")
 
 source = ColumnDataSource(data)
 
-p1 = figure(title="y1 vs x", width=400, height=400, tools="box_select,lasso_select")
-p1.circle("x", "y1", size=8, source=source)
+p1 = figure(tools="box_select")
+p1.circle("x", "y1", source=source)
 
-p2 = figure(title="y2 vs x", width=400, height=400, tools="box_select,lasso_select")
-p2.circle("x", "y2", size=8, source=source)
+p2 = figure(tools="box_select")
+p2.circle("x", "y2", source=source)
 
 show(row(p1, p2))

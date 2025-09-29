@@ -7,10 +7,13 @@ data = pd.DataFrame({
 })
 
 
+
+
+
 import plotly.express as px
 
-fig1 = px.scatter(data, x="x", y="y1", title="y1 vs x")
-fig2 = px.scatter(data, x="x", y="y2", title="y2 vs x")
+fig1 = px.scatter(data, x="x", y="y1")
+fig2 = px.scatter(data, x="x", y="y2")
 
 fig1.show()
 fig2.show()

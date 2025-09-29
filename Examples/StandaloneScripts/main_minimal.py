@@ -14,7 +14,7 @@ from MCVGraph import DataSource, Canvas, ScatterPlot
 
 # Create some random 2D data
 rng = np.random.default_rng(42)
-points = rng.uniform(-1, 1, size=(100, 2))
+points = rng.uniform(0, 1, size=(100, 2))
 data_source = DataSource(points)
 
 # Standard Qt application

@@ -7,13 +7,14 @@ data = pd.DataFrame({
 })
 
 
+
+
+
 import matplotlib.pyplot as plt
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10,4))
 ax1.scatter(data["x"], data["y1"])
-ax1.set_title("y1 vs x")
 
 ax2.scatter(data["x"], data["y2"])
-ax2.set_title("y2 vs x")
 
 plt.show()

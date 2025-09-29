@@ -10,10 +10,11 @@ data = pd.DataFrame({
 })
 
 
-import plotly.express as px
+import matplotlib.pyplot as plt
 
-fig1 = px.scatter(data, x="x1", y="y1", title="Scatterplot 1")
-fig2 = px.scatter(data, x="x2", y="y2", title="Scatterplot 2")
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10,5))
+ax1.scatter(data["x1"], data["y1"], alpha=0.7)
 
-fig1.show()
-fig2.show()
+ax2.scatter(data["x2"], data["y2"], alpha=0.7)
+
+plt.show()

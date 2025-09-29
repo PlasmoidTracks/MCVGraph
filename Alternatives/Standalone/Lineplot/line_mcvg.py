@@ -7,19 +7,22 @@ data = pd.DataFrame({
 })
 
 
-from MCVGraph import DataSource, LinePlot, Canvas
+
+
+
+from MCVGraph import DataSource, Canvas, ScatterPlot
 from PyQt5 import QtWidgets
 
-data_source1 = DataSource(data["y1"])
-data_source2 = DataSource(data["y2"])
+data_source1 = DataSource(data[["x", "y1"]])
+data_source2 = DataSource(data[["x", "y2"]])
 
 app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
 canvas = Canvas()
-lineplot1 = LinePlot(data_source1, sample_rate=1)
-lineplot2 = LinePlot(data_source2, sample_rate=1)
-canvas.plot(lineplot1)
-canvas.plot(lineplot2)
+scatterplot1 = ScatterPlot(data_source1)
+scatterplot2 = ScatterPlot(data_source2)
+canvas.plot(scatterplot1)
+canvas.plot(scatterplot2)
 
 canvas.show()
 
