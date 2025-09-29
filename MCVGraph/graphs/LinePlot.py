@@ -466,7 +466,7 @@ class LinePlot(GraphBase):
 
         wf = self._waveform
         peak = np.max(np.abs(wf)) if wf.size else 1.0
-        wf = (wf / peak) if peak > 0 else wf
+        wf = (wf / (peak * 2.0)) if peak > 0 else wf
 
         if self._cursor is not None:
             self._cursor.setVisible(True)

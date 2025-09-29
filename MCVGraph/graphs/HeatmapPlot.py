@@ -168,10 +168,28 @@ class HeatmapPlot(GraphBase):
 
         act_scale = QtWidgets.QAction("Set cell scale…", parent)
         def _set_scale():
-            sx, okx = QtWidgets.QInputDialog.getDouble(None, "Cell width", "scale_x:", self.scale_x, -1000, 1000, 3)
-            if not okx: return
-            sy, oky = QtWidgets.QInputDialog.getDouble(None, "Cell height", "scale_y:", self.scale_y, -1000, 1000, 3)
-            if not oky: return
+            dlg = QtWidgets.QInputDialog(None)
+            dlg.setInputMode(QtWidgets.QInputDialog.TextInput)
+            dlg.setLabelText("scale_x:")
+            dlg.setTextValue(str(self.scale_x))
+            if not dlg.exec_():
+                return
+            try:
+                sx = float(dlg.textValue())
+            except ValueError:
+                return
+
+            dlg = QtWidgets.QInputDialog(None)
+            dlg.setInputMode(QtWidgets.QInputDialog.TextInput)
+            dlg.setLabelText("scale_y:")
+            dlg.setTextValue(str(self.scale_y))
+            if not dlg.exec_():
+                return
+            try:
+                sy = float(dlg.textValue())
+            except ValueError:
+                return
+
             self.scale_x, self.scale_y = sx, sy
             self._update_plot()
         act_scale.triggered.connect(_set_scale)

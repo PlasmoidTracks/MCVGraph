@@ -5,7 +5,7 @@ from matplotlib.path import Path
 
 # Generate random points
 rng = np.random.default_rng(42)
-points = rng.uniform(-1, 1, size=(100, 2))
+points = rng.uniform(-1, 1, size=(1000, 2))
 
 # Complex square transformation
 z = points[:,0] + 1j*points[:,1]
