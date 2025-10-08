@@ -25,12 +25,12 @@ class GraphBus:
         return cls._instance
 
     def register(self, handler: Any) -> None:
-        print(f"[GraphBus] Registering: {handler.node_type}")
+        #print(f"[GraphBus] Registering: {handler.node_type}")
         self.nodes.append(handler)
 
     def unregister(self, handler: Any) -> None:
         if handler in self.nodes:
-            print(f"[GraphBus] Unregistering: {handler.node_type}")
+            #print(f"[GraphBus] Unregistering: {handler.node_type}")
             self.nodes.remove(handler)
 
     def emit_event(self, event_type: str, payload: Any) -> None:
@@ -58,7 +58,7 @@ class GraphEventClient(QObject):
         self.signal.connect(owner.handle_event)
 
     def disconnect(self) -> None:
-        print(f"[GraphBus] Disconnecting: {self.node_type}")
+        #print(f"[GraphBus] Disconnecting: {self.node_type}")
         self.signal.disconnect()
         self.bus.unregister(self)
 

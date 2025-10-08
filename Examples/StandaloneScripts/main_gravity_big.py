@@ -147,7 +147,6 @@ edges_ds = DataSource(np.zeros((0, 2), dtype=int))
 polyline_plot = PolylinePlot(
     vertices=vertices_ds,
     edges=edges_ds,
-    color="orange",
     line_width=1.5,
 )
 

@@ -229,6 +229,24 @@ Look under `Examples/`. There are examples for Standalone scripts, as well as th
 
 ---
 
+# Unit Tests & Benchmarks
+
+Unit tests are available under `UnitTest/` and can be run via
+
+```sh
+python -m UnitTest.unittest
+```
+
+Benchmarks are available under `Benchmark/` and can be run via
+
+```sh
+python -m Benchmark.benchmark
+```
+
+Both assuming that the venv is active.
+
+---
+
 # Troubleshooting
 
 ## Linux
@@ -366,8 +384,15 @@ In general, each plot can be interacted with by the mouse in two ways. In `selec
     - Adding more convenience in how DataSource can be instantiated and used
     - Allowing higher dimensional data as input and outputting multiple datasources at once
     - Using one Datasource to feed multiple different graphs using different data sources
-- Timbral flexibility
+    - Metadata per point
+- Sonification
     - Add different sonification modes
+        - Not just points as waveplayer, but also single points as triggers for more complex sounds
+        - LinePlot could use amplitude axis as frequency axis instead
+    - Include other Graphs into sonification
+        - HeatmapPlot could directly be interpreted as a spectrogram and played back
+        - PolylinePlot could chose next point as sound trigger from set of connections from that point
+        - Scatterplot could also directly map x axis to time and y axis to amplitude and playback
     - Let the user set a convolution function, which is applied to the sonification
 - Embeddings
     - Direct embedding for jupyter notebooks, without QApplication

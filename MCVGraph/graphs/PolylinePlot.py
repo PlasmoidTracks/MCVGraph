@@ -17,7 +17,9 @@ class PolylinePlot(GraphBase):
         vertices: Any,
         edges: Any,
         *,
-        color: str = "blue",
+        color: str = "gray",  # kept for backward-compat; treated as non-selected color
+        color_non_selected: Optional[str] = None,
+        selection_color: Optional[str] = None,
         line_width: float = 1.0,
         name: Optional[str] = None,
         focus: bool = False,
@@ -26,7 +28,21 @@ class PolylinePlot(GraphBase):
     ) -> None:
         self.vertices = vertices
         self.edges = edges
-        self.color = color
+
+        # Non-selected/base color (match other plots' default "gray")
+        self.color_non_selected = str(color_non_selected if color_non_selected is not None else color)
+
+        # Selection/highlight color (match ScatterPlot/LinePlot rotating palette)
+        if selection_color is None:
+            idx = PolylinePlot._color_counter % len(PolylinePlot._DEFAULT_COLORS)
+            self._selection_color = PolylinePlot._DEFAULT_COLORS[idx]
+            PolylinePlot._color_counter += 1
+        else:
+            self._selection_color = str(selection_color)
+
+        # Maintain a generic "color" attribute for GraphBase defaults if ever used
+        self.color = self._selection_color
+
         self.line_width = line_width
         self.name = name
 
@@ -85,16 +101,10 @@ class PolylinePlot(GraphBase):
 
     def _update_plot(self) -> None:
         """
-        Redraw polyline network.
-        Steps:
-        1. Clear old curve items from the scene.
-        2. Fetch vertices (Nx2 coordinates) and edges (Mx2 index pairs).
-        3. If subset-only mode is active, restrict allowed vertices
-           to those highlighted by other plots.
-        4. Build an inverse mapping raw_idx → view_idx.
-        5. Filter edges: keep only those whose endpoints are still valid.
-        6. Build a polyline path (sequence of line segments, NaN separators).
-        7. Add as a single PlotCurveItem with the configured color/width.
+        Redraw polyline network with highlight overlays.
+        Base layer uses non-selected color.
+        For each highlight source, draw an overlay of edges incident to
+        any selected vertex in that source color.
         """
         if self._plot_item is None:
             return
@@ -136,32 +146,76 @@ class PolylinePlot(GraphBase):
             return
 
         # Keep only valid edges where both endpoints are in allowed set
-        keep = []
-        for i, j in edges:
-            if 0 <= i < n_raw and 0 <= j < n_raw and inv_map[i] >= 0 and inv_map[j] >= 0:
-                keep.append((inv_map[i], inv_map[j]))
-        if not keep:
+        valid = (
+            (edges[:, 0] >= 0) & (edges[:, 0] < n_raw) &
+            (edges[:, 1] >= 0) & (edges[:, 1] < n_raw) &
+            (inv_map[edges[:, 0]] >= 0) &
+            (inv_map[edges[:, 1]] >= 0)
+        )
+        if not np.any(valid):
             return
 
-        # Build vertex view coordinates
+        edges_raw_valid = edges[valid]
+        # Map endpoints to view indices
+        edges_view = np.stack(
+            [inv_map[edges_raw_valid[:, 0]], inv_map[edges_raw_valid[:, 1]]],
+            axis=1
+        )
+
         verts_view = verts[view_raw_idx]
-        pts = []
-        for ii, jj in keep:
-            pts.append([verts_view[ii, 0], verts_view[ii, 1]])
-            pts.append([verts_view[jj, 0], verts_view[jj, 1]])
-            pts.append([np.nan, np.nan])  # separator for discontinuous segments
 
-        pts = np.array(pts, dtype=float)
-        if pts.size == 0:
-            return
+        # Helper to build a NaN-separated polyline path from a list/array of edges (view indices)
+        def build_pts(ev: np.ndarray) -> np.ndarray:
+            if ev.size == 0:
+                return np.empty((0, 2), dtype=float)
+            n = len(ev)
+            pts = np.empty((n * 3, 2), dtype=float)
+            pts[0::3] = verts_view[ev[:, 0], :2]
+            pts[1::3] = verts_view[ev[:, 1], :2]
+            pts[2::3, 0] = np.nan
+            pts[2::3, 1] = np.nan
+            return pts
 
-        # Create and add polyline curve
-        curve = pg.PlotCurveItem(pts[:, 0], pts[:, 1],
-                                 pen=pg.mkPen(self.color, width=self.line_width))
-        curve.setOpacity(self._opacity)
-        curve.setZValue(self._z)
-        self._plot_item.addItem(curve)
-        self._curves.append(curve)
+        # Determine highlight membership per edge per source
+        highlighted_any = np.zeros(len(edges_raw_valid), dtype=bool)
+
+        # Draw overlays per highlight source
+        for src, (inds_raw, color) in self._highlight_indices.items():
+            ii = np.asarray(inds_raw, dtype=int)
+            ii = ii[(ii >= 0) & (ii < n_raw)]
+            if ii.size == 0:
+                continue
+
+            # Edge is highlighted if any endpoint is selected
+            sel_mask = np.isin(edges_raw_valid[:, 0], ii) | np.isin(edges_raw_valid[:, 1], ii)
+            if not np.any(sel_mask):
+                continue
+
+            highlighted_any |= sel_mask
+            ev = edges_view[sel_mask]
+            pts = build_pts(ev)
+            if pts.size == 0:
+                continue
+
+            curve_h = pg.PlotCurveItem(pts[:, 0], pts[:, 1],
+                                       pen=pg.mkPen(color, width=self.line_width))
+            curve_h.setOpacity(self._opacity)
+            curve_h.setZValue(self._z + 1)
+            self._plot_item.addItem(curve_h)
+            self._curves.append(curve_h)
+
+        # Base layer: edges not highlighted by any source
+        base_mask = ~highlighted_any
+        if np.any(base_mask):
+            ev_base = edges_view[base_mask]
+            pts_base = build_pts(ev_base)
+            if pts_base.size > 0:
+                curve_base = pg.PlotCurveItem(pts_base[:, 0], pts_base[:, 1],
+                                              pen=pg.mkPen(self.color_non_selected, width=self.line_width))
+                curve_base.setOpacity(self._opacity)
+                curve_base.setZValue(self._z)
+                self._plot_item.addItem(curve_base)
+                self._curves.append(curve_base)
 
     def expose_actions(self, parent: Optional[Any] = None) -> list[Any]:
         actions = []
@@ -174,6 +228,25 @@ class PolylinePlot(GraphBase):
         subset_action.toggled.connect(_toggle_subset)
         actions.append(subset_action)
 
+        base_color_action = QtWidgets.QAction("Set Non-selected Color…", parent)
+        def _set_base_color():
+            col = QtWidgets.QColorDialog.getColor(QtGui.QColor(self.color_non_selected), None, "Pick color")
+            if col.isValid():
+                self.set_color_non_selected(col.name())
+        base_color_action.triggered.connect(_set_base_color)
+        actions.append(base_color_action)
+
+        sel_color_action = QtWidgets.QAction("Set Selection Color…", parent)
+        def _set_sel_color():
+            col = QtWidgets.QColorDialog.getColor(QtGui.QColor(self._selection_color), None, "Pick selection color")
+            if col.isValid():
+                self.set_selection_color(col.name())
+                # No immediate visual change unless this layer emits selections,
+                # but keep consistent with other plots.
+                self._update_plot()
+        sel_color_action.triggered.connect(_set_sel_color)
+        actions.append(sel_color_action)
+
         return actions
 
     def close(self) -> None:
@@ -181,17 +254,30 @@ class PolylinePlot(GraphBase):
             self.graph.disconnect()
 
     def get_color(self) -> str:
-        return self.color
+        # Color used when *this* plot emits selection events
+        return self._selection_color
 
+    def set_color_non_selected(self, color: str) -> None:
+        self.color_non_selected = str(color)
+        self._update_plot()
+
+    def set_selection_color(self, color: str) -> None:
+        self._selection_color = str(color)
+        # Keep generic attribute in sync for any default usage
+        self.color = self._selection_color
+
+    # Backward-compat: treat set_color as setting the selection color
     def set_color(self, color: str) -> None:
-        self.color = str(color)
+        self.set_selection_color(color)
         self._update_plot()
 
     def clone(self) -> "PolylinePlot":
         dup = PolylinePlot(
             self.vertices,
             self.edges,
-            color=self.color,
+            color=self.color_non_selected,
+            color_non_selected=self.color_non_selected,
+            selection_color=self._selection_color,
             line_width=self.line_width,
             name=self.name,
             focus=self._focus,

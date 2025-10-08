@@ -14,8 +14,6 @@ from bokeh.plotting import figure, show, output_file
 from bokeh.models import ColumnDataSource
 from bokeh.layouts import row
 
-output_file("bokeh_linked.html")
-
 source = ColumnDataSource(data)
 
 p1 = figure(tools="box_select")
