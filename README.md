@@ -251,6 +251,26 @@ Both assuming that the venv is active.
 
 ## Linux
 
+### `Could not load the Qt platform plugin "xcb"`
+
+If you see this error: 
+
+```python
+qt.qpa.plugin: Could not load the Qt platform plugin "xcb" in "" even though it was found.
+This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix this problem.
+
+Available platform plugins are: eglfs, linuxfb, minimal, minimalegl, offscreen, vnc, wayland-egl, wayland, wayland-xcomposite-egl, wayland-xcomposite-glx, webgl, xcb.
+
+Abgebrochen (Speicherabzug geschrieben)
+```
+
+it indicates that Qt’s XCB platform plugin failed to load due to a binary compatibility (ABI) mismatch between the system-installed Qt libraries and the Python PyQt5 bindings.
+
+This typically occurs when you are using a virtual environment without `--system-site-packages` on Linux, causing PyQt5 to be loaded from pip (compiled against a different Qt version). 
+
+In that case, remove the virtual environment and recreate it with the `--system-site-packages` flag, as mentioned under the `Linux` parts of the setup sections. 
+
+
 ### `ModuleNotFoundError: No module named 'PyQt5.sip'`
 
 Should something like this show up: 
@@ -404,7 +424,7 @@ In general, each plot can be interacted with by the mouse in two ways. In `selec
 
 # Known issues
 
-- when the DataSource is being updated too fast, the update queue of the `PyQt graph` may overflow and the graphs become unresponsive. This can be circumvented by keeping updates reasonably spaced. 60hz is a very safe option. 
+- when the DataSource is being updated too fast, the update queue of the `PyQt graph` may overflow and the graphs become unresponsive. This can be circumvented by keeping `DataSource` updates via `DataSource.set()` reasonably spaced. 60hz is a very safe option. 
 
 - Selections can be slow, especially with many updating graphs. 
 
